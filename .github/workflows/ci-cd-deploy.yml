@@ -82,7 +82,7 @@ jobs:
               git pull origin main
             else
               echo "[deploy] Cloning repository"
-              git clone https://${{ secrets.GIT_PAT }}@github.com/${{ github.repository }}.git . || (
+              git clone https://${{ secrets.GIT_PAT }}@github.com/${{ github.repository }} . || (
                 echo "Initial clone failed."
                 exit 1
               )

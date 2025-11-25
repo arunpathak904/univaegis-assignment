@@ -97,7 +97,7 @@ jobs:
             fi
 
             # Create .env on remote host from GitHub Secrets (secure transfer)
-            cat > .env <<'ENV_PLACEHOLDER'
+            cat > .env << 'EOF'
 DB_NAME=${{ secrets.DB_NAME }}
 DB_USER=${{ secrets.DB_USER }}
 DB_PASSWORD=${{ secrets.DB_PASSWORD }}
@@ -115,7 +115,7 @@ HOST_BACKEND_PORT=${{ secrets.HOST_BACKEND_PORT }}
 CONTAINER_BACKEND_PORT=${{ secrets.CONTAINER_BACKEND_PORT }}
 HOST_FRONTEND_PORT=${{ secrets.HOST_FRONTEND_PORT }}
 CONTAINER_FRONTEND_PORT=${{ secrets.CONTAINER_FRONTEND_PORT }}
-ENV_PLACEHOLDER
+EOF
 
             # Run the deploy script (will use the .env)
             ./deploy_univaegis.sh

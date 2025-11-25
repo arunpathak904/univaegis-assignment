@@ -1,0 +1,23 @@
+# For Python
+__pycache__/
+*.py[cod]
+*.sqlite3
+.env
+venv/
+.env/
+*.log
+
+# For Django
+staticfiles/
+media/
+
+# For VS Code
+.vscode/
+
+# For Node
+node_modules/
+dist/
+build/
+
+# For Docker
+*.pid

@@ -119,3 +119,4 @@ EOF
 
             # Run the deploy script (will use the .env)
             ./deploy_univaegis.sh
+            

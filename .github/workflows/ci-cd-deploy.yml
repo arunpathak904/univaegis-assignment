@@ -1,4 +1,4 @@
-name: CI/CD — Build, Push, Deploy
+name: Test CI/CD Minimal
 
 on:
   push:
@@ -16,16 +16,9 @@ jobs:
     permissions:
       contents: read
       packages: write
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
-
-      - name: Set up Buildx
-        uses: docker/setup-buildx-action@v2
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -34,88 +27,30 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build & push backend
+      - name: Build & push backend (minimal)
         uses: docker/build-push-action@v4
         with:
           context: .
           file: univaegis-backend/Dockerfile
-          push: true
+          push: false
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.APP_NAME }}-backend:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.APP_NAME }}-backend:test
 
-      - name: Build & push frontend
-        uses: docker/build-push-action@v4
-        with:
-          context: ./univaegis-frontend
-          file: univaegis-frontend/Dockerfile
-          push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.APP_NAME }}-frontend:latest
-
-  deploy:
+  deploy-minimal:
     needs: build-and-push
     runs-on: ubuntu-latest
-
     steps:
-      - name: Short wait
-        run: sleep 5
+      - name: Sleep
+        run: sleep 2
 
-      - name: Deploy to EC2 via SSH: clone/pull repo and run deploy script
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Test SSH - echo on remote
+        uses: appleboy/ssh-action@v0.1.9
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           port: ${{ secrets.EC2_SSH_PORT }}
           script: |
-            set -euo pipefail
-
-            DEPLOY_DIR="$HOME/univaegis-assignment"
-            mkdir -p "$DEPLOY_DIR"
-            cd "$DEPLOY_DIR"
-
-            # If repo exists, pull latest; otherwise clone repo
-            if [ -d ".git" ]; then
-              echo "[deploy] Repo exists — pulling latest"
-              git reset --hard
-              git clean -fd
-              git pull origin main
-            else
-              echo "[deploy] Cloning repository"
-              git clone https://${{ secrets.GIT_PAT }}@github.com/${{ github.repository }}.git . || (
-                echo "Initial clone failed."
-                exit 1
-              )
-            fi
-
-            # Ensure the deploy script from repo is executable
-            if [ -f "./deploy_univaegis.sh" ]; then
-              chmod +x ./deploy_univaegis.sh
-            else
-              echo "[deploy] deploy_univaegis.sh not found in repo!"
-              exit 2
-            fi
-
-            # Create .env on remote host from GitHub Secrets (secure transfer)
-            cat > .env << EOF
-DB_NAME=${{ secrets.DB_NAME }}
-DB_USER=${{ secrets.DB_USER }}
-DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-DB_HOST=${{ secrets.DB_HOST }}
-DB_PORT=${{ secrets.DB_PORT }}
-
-DJANGO_SECRET_KEY=${{ secrets.DJANGO_SECRET_KEY }}
-DJANGO_DEBUG=${{ secrets.DJANGO_DEBUG }}
-DJANGO_ALLOWED_HOSTS=${{ secrets.DJANGO_ALLOWED_HOSTS }}
-
-BACKEND_IMAGE=ghcr.io/${{ env.IMAGE_OWNER }}/${{ env.APP_NAME }}-backend:latest
-FRONTEND_IMAGE=ghcr.io/${{ env.IMAGE_OWNER }}/${{ env.APP_NAME }}-frontend:latest
-
-HOST_BACKEND_PORT=${{ secrets.HOST_BACKEND_PORT }}
-CONTAINER_BACKEND_PORT=${{ secrets.CONTAINER_BACKEND_PORT }}
-HOST_FRONTEND_PORT=${{ secrets.HOST_FRONTEND_PORT }}
-CONTAINER_FRONTEND_PORT=${{ secrets.CONTAINER_FRONTEND_PORT }}
-EOF
-
-            # Run the deploy script (will use the .env)
-            ./deploy_univaegis.sh
+            echo "SSH connection successful from GitHub Actions"
+            uname -a
+            pwd

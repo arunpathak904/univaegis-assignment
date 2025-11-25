@@ -82,8 +82,8 @@ jobs:
               git pull origin main
             else
               echo "[deploy] Cloning repository"
-              git clone https://github.com/${{ github.repository }} . || (
-                echo "Clone failed. If the repository is private, set GIT_PAT and update the workflow."
+              git clone https://${{ secrets.GIT_PAT }}@github.com/${{ github.repository }}.git . || (
+                echo "Initial clone failed."
                 exit 1
               )
             fi

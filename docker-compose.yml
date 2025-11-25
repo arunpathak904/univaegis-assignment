@@ -3,49 +3,37 @@ version: "3.9"
 services:
   db:
     image: postgres:15-alpine
-    container_name: univaegis_db
     restart: always
     environment:
-      POSTGRES_DB: univaegis
-      POSTGRES_USER: univaegis_user
-      POSTGRES_PASSWORD: univaegis_pass
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - pgdata:/var/lib/postgresql/data
 
   backend:
-    build:
-      context: .
-      dockerfile: univaegis-backend/Dockerfile
-    container_name: univaegis_backend
+    image: ${BACKEND_IMAGE}
     restart: always
     env_file:
-      - univaegis-backend/.env
+      - .env
     environment:
-      # Override DB_HOST for Docker
-      DB_HOST: db
-      DJANGO_DEBUG: "False"  # set False in container
-      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1"
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
     depends_on:
       - db
     ports:
-      - "8000:8080"  # host:container (host 8000 → container 8080)
+      - "${HOST_BACKEND_PORT}:${CONTAINER_BACKEND_PORT}"
     volumes:
       - backend_media:/app/media
       - backend_static:/app/staticfiles
 
   frontend:
-    build:
-      context: ./univaegis-frontend
-      dockerfile: Dockerfile
-    container_name: univaegis_frontend
+    image: ${FRONTEND_IMAGE}
     restart: always
     depends_on:
       - backend
     ports:
-      - "3000:80"  # host:container (host 3000 → container 80)
-    # No special environment needed if VITE_API_BASE_URL == http://localhost:8000/api
+      - "${HOST_FRONTEND_PORT}:${CONTAINER_FRONTEND_PORT}"
 
 volumes:
   pgdata:

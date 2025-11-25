@@ -59,7 +59,7 @@ jobs:
       - name: Wait briefly
         run: sleep 5
 
-      - name: Deploy to EC2 via SSH and run deploy script
+      - name: Deploy to EC2 via SSH: clone/pull repo and run deploy script
         uses: appleboy/ssh-action@v0.1.9
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -67,18 +67,32 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           port: ${{ secrets.EC2_SSH_PORT }}
           script: |
-            mkdir -p ~/univaegis-assignment
-            cd ~/univaegis-assignment
-            # If repo isn't on server, you can git clone; otherwise ensure deploy script exists
-            # Uncomment to git clone:
-            # git clone https://github.com/${{ github.repository }} . || (cd . ; git pull)
-            # Place deploy script (you can also commit it and pull from repo)
-            cat > ./deploy_univaegis.sh <<'DEP'
-${{ secrets.DEPLOY_SCRIPT_CONTENT }}
-DEP
+            set -euo pipefail
+
+            # working dir on remote host
+            DEPLOY_DIR="$HOME/univaegis-assignment"
+            mkdir -p "$DEPLOY_DIR"
+            cd "$DEPLOY_DIR"
+
+            # If the repo exists already, git pull; else clone it.
+            if [ -d ".git" ]; then
+              echo "[deploy] Repo exists — pulling latest"
+              git reset --hard
+              git clean -fd
+              git pull origin main
+            else
+              echo "[deploy] Cloning repository"
+              # If your repo is public this works. If private, see note below about GIT_PAT.
+              git clone https://${{ secrets.GIT_PAT }}@github.com/${{ github.repository }}.git . || (
+                echo "Initial clone failed. If repo is private, set GIT_PAT secret and action will use it."
+                exit 1
+              )
+            fi
+
+            # Ensure deploy script is executable
             chmod +x ./deploy_univaegis.sh
 
-            # Create .env from secrets (these come from GitHub Secrets)
+            # Create .env from GitHub Secrets (secure transfer via Actions)
             cat > .env <<'ENV'
 DB_NAME=${{ secrets.DB_NAME }}
 DB_USER=${{ secrets.DB_USER }}
@@ -99,6 +113,6 @@ HOST_FRONTEND_PORT=${{ secrets.HOST_FRONTEND_PORT }}
 CONTAINER_FRONTEND_PORT=${{ secrets.CONTAINER_FRONTEND_PORT }}
 ENV
 
-            # Run deploy script
+            # Run deploy script from repo (it will use the .env we just wrote)
             ./deploy_univaegis.sh
 

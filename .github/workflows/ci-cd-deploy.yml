@@ -97,7 +97,7 @@ jobs:
             fi
 
             # Create .env on remote host from GitHub Secrets (secure transfer)
-            cat > .env << 'EOF'
+            cat > .env << EOF
 DB_NAME=${{ secrets.DB_NAME }}
 DB_USER=${{ secrets.DB_USER }}
 DB_PASSWORD=${{ secrets.DB_PASSWORD }}

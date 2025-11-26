@@ -1,11 +1,15 @@
 import os
 import re
+import logging
 from typing import Dict, Any
 
 from django.conf import settings
+from pathlib import Path
 from pdf2image import convert_from_path
 from PIL import Image
 import pytesseract
+
+logger = logging.getLogger(__name__)
 
 
 def get_poppler_path() -> str:
@@ -22,39 +26,43 @@ def is_pdf(file_path: str) -> bool:
 
 def run_ocr_on_image(image: Image.Image) -> str:
     """
-    Run Tesseract OCR on a PIL Image and return extracted text.
+    Take a PIL Image, normalize it, and run Tesseract OCR.
+    Copying the image detaches it from lazy PNG internals to avoid '_idat.fileno' bug.
     """
-    # You can tune config for better accuracy later.
-    text = pytesseract.image_to_string(image)
-    return text
+    # Ensure image is fully loaded, in RGB, and detached from source
+    image = image.convert("RGB").copy()
+    return pytesseract.image_to_string(image)
 
 
 def ocr_file(file_path: str) -> str:
     """
-    Run OCR on a file.
-
-    - If PDF: convert pages to images using pdf2image, then OCR each page.
-    - If image: open with PIL and run OCR.
+    Decide how to process file based on extension.
+    - PDFs -> pdf2image -> run OCR on each page
+    - Images (jpg/png/jpeg) -> open with PIL, then run OCR
     """
-    if is_pdf(file_path):
-        # For PDF: convert first 2 pages to images
-        poppler_path = get_poppler_path()
-        if poppler_path:
-            pages = convert_from_path(file_path, dpi=200, first_page=1, last_page=2, poppler_path=poppler_path)
-        else:
-            # On Linux/Mac, poppler is usually on PATH, so poppler_path not needed
-            pages = convert_from_path(file_path, dpi=200, first_page=1, last_page=2)
+    try:
+        ext = Path(file_path).suffix.lower()
 
-        all_text = []
-        for page in pages:
-            page_text = run_ocr_on_image(page)
-            all_text.append(page_text)
-        return "\n".join(all_text)
+        if ext == ".pdf":
+            # PDF -> convert each page to image, OCR all
+            pages = convert_from_path(file_path, dpi=300)
+            texts = [run_ocr_on_image(page) for page in pages]
+            return "\n\n".join(texts)
 
-    else:
-        # Assume it's an image (JPG/PNG)
-        image = Image.open(file_path).convert("RGB")
-        return run_ocr_on_image(image)
+        # image types
+        if ext in {".jpg", ".jpeg", ".png"}:
+            with Image.open(file_path) as img:
+                # ensure load into memory, then pass to OCR
+                img = img.convert("RGB")
+                return run_ocr_on_image(img)
+
+        # fallback (if unknown type)
+        with Image.open(file_path) as img:
+            img = img.convert("RGB")
+            return run_ocr_on_image(img)
+    except Exception as e:
+        logger.exception("OCR failed for %s: %s", file_path, e)
+        return ""
 
 
 def compute_confidence_placeholder(text: str) -> float:

@@ -45,7 +45,7 @@ services:
     depends_on:
       - backend
     ports:
-      - "3000:80"  # host:container (host 3000 → container 80)
+      - "80:80"  # host:container (host 3000 → container 80)
 
 volumes:
   pgdata:

@@ -26,40 +26,46 @@ def is_pdf(file_path: str) -> bool:
 
 def run_ocr_on_image(image: Image.Image) -> str:
     """
-    Take a PIL Image, normalize it, and run Tesseract OCR.
-    Copying the image detaches it from lazy PNG internals to avoid '_idat.fileno' bug.
+    Normalize a PIL image and run Tesseract OCR.
+    We convert to grayscale and copy to avoid lazy loaders / fileno errors.
     """
-    # Ensure image is fully loaded, in RGB, and detached from source
-    image = image.convert("RGB").copy()
+    # Convert to grayscale (less memory) and detach from original file
+    image = image.convert("L").copy()
     return pytesseract.image_to_string(image)
+
+
+def _ocr_file(file_path: str) -> str:
+    """
+    Core OCR logic (no try/except).
+    - PDFs -> pdf2image -> OCR each page and join text.
+    - JPG/PNG -> PIL open -> OCR.
+    """
+    ext = Path(file_path).suffix.lower()
+
+    if ext == ".pdf":
+        # PDF -> convert each page to image, OCR all
+        # Use lower DPI to reduce memory usage
+        pages = convert_from_path(file_path, dpi=200)
+        texts = [run_ocr_on_image(page) for page in pages]
+        return "\n\n".join(texts)
+
+    # image types
+    if ext in {".jpg", ".jpeg", ".png"}:
+        with Image.open(file_path) as img:
+            return run_ocr_on_image(img)
+
+    # fallback (if unknown type)
+    with Image.open(file_path) as img:
+        return run_ocr_on_image(img)
 
 
 def ocr_file(file_path: str) -> str:
     """
-    Decide how to process file based on extension.
-    - PDFs -> pdf2image -> run OCR on each page
-    - Images (jpg/png/jpeg) -> open with PIL, then run OCR
+    Safe wrapper for OCR: logs errors and returns empty string on failure.
+    This prevents gunicorn worker crash.
     """
     try:
-        ext = Path(file_path).suffix.lower()
-
-        if ext == ".pdf":
-            # PDF -> convert each page to image, OCR all
-            pages = convert_from_path(file_path, dpi=300)
-            texts = [run_ocr_on_image(page) for page in pages]
-            return "\n\n".join(texts)
-
-        # image types
-        if ext in {".jpg", ".jpeg", ".png"}:
-            with Image.open(file_path) as img:
-                # ensure load into memory, then pass to OCR
-                img = img.convert("RGB")
-                return run_ocr_on_image(img)
-
-        # fallback (if unknown type)
-        with Image.open(file_path) as img:
-            img = img.convert("RGB")
-            return run_ocr_on_image(img)
+        return _ocr_file(file_path)
     except Exception as e:
         logger.exception("OCR failed for %s: %s", file_path, e)
         return ""

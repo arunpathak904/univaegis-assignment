@@ -1,37 +1,51 @@
+version: "3.9"
+
 services:
   db:
     image: postgres:15-alpine
+    container_name: univaegis_db
     restart: always
     environment:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
 
   backend:
-    image: ${BACKEND_IMAGE}
+    build:
+      context: .
+      dockerfile: univaegis-backend/Dockerfile
+    container_name: univaegis_backend
     restart: always
     env_file:
       - .env
     environment:
+      # Override DB_HOST for Docker
       DB_HOST: ${DB_HOST}
       DB_PORT: ${DB_PORT}
+      DJANGO_DEBUG: ${DJANGO_DEBUG}  # set False in container
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS}
     depends_on:
       - db
     ports:
-      - "${HOST_BACKEND_PORT}:${CONTAINER_BACKEND_PORT}"
+      - "8000:8080"  # host:container (host 8000 → container 8080)
     volumes:
       - backend_media:/app/media
       - backend_static:/app/staticfiles
 
   frontend:
-    image: ${FRONTEND_IMAGE}
+    build:
+      context: ./univaegis-frontend
+      dockerfile: Dockerfile
+    container_name: univaegis_frontend
     restart: always
     depends_on:
       - backend
     ports:
-      - "${HOST_FRONTEND_PORT}:${CONTAINER_FRONTEND_PORT}"
+      - "3000:80"  # host:container (host 3000 → container 80)
 
 volumes:
   pgdata:

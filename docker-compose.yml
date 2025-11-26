@@ -41,12 +41,14 @@ services:
     build:
       context: ./univaegis-frontend
       dockerfile: Dockerfile
+      args:
+        API_BASE_URL: ${FRONTEND_API_BASE_URL}
     container_name: univaegis_frontend
     restart: always
     depends_on:
       - backend
     ports:
-      - "80:80"  # host:container (host 3000 → container 80)
+      - "80:80"  # host:container (host 80 → container 80)
 
 volumes:
   pgdata:

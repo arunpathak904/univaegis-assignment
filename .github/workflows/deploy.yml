@@ -1,4 +1,4 @@
-name: CI/CD Deploy
+name: Simple CI/CD Deploy
 
 on:
   push:
@@ -19,12 +19,14 @@ jobs:
           port: ${{ secrets.EC2_SSH_PORT }}
           script: |
             set -e
+
             cd $HOME/univaegis-assignment
 
             echo "[CI] Pulling latest code..."
-            git pull origin main
+            git fetch origin main
+            git reset --hard origin/main
 
-            echo "[CI] Building & restarting containers with docker compose..."
+            echo "[CI] Rebuilding images & recreating containers..."
             docker compose up -d --build --force-recreate
 
             echo "[CI] Waiting for backend container to be ready..."

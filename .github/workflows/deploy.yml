@@ -25,7 +25,7 @@ jobs:
             git pull origin main
 
             echo "[CI] Building & restarting containers with docker compose..."
-            docker compose up -d --build
+            docker compose up -d --build --force-recreate
 
             echo "[CI] Waiting for backend container to be ready..."
             sleep 10

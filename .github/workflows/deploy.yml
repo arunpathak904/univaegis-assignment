@@ -24,7 +24,16 @@ jobs:
             echo "[CI] Pulling latest code..."
             git pull origin main
 
-            echo "[CI] Restarting containers with docker compose..."
+            echo "[CI] Building & restarting containers with docker compose..."
             docker compose up -d --build
+
+            echo "[CI] Waiting for backend container to be ready..."
+            sleep 10
+
+            echo "[CI] Running Django migrations..."
+            docker compose exec -T backend python manage.py migrate --noinput
+
+            echo "[CI] Collecting static files..."
+            docker compose exec -T backend python manage.py collectstatic --noinput
 
             echo "[CI] Deployment completed."
